@@ -12,33 +12,60 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
+#include <vector>
 
-const int INIT_WIN_X = 900;
-const int INIT_WIN_Y = 900;
+const int INIT_WIN_X = 500;
+const int INIT_WIN_Y = 500;
+const int DELTA_T = 0;
 
 void handleResize(sf::RenderWindow &window, sf::Event event, sf::View view);
+int randInt(int min, int max);
+void initialize(void);
+void update(void);
+void drawStuff(void);
+void drawRect(int num, sf::Color color);
+void setVectorSize(int x, int y);
+void colorPixel(int x, int y, sf::Color color);
+
+sf::RenderWindow window(sf::VideoMode(INIT_WIN_X, INIT_WIN_Y, 32), "Test");
+sf::Event event;
+sf::View view;
+
+std::vector< std::vector<sf::Color> > pixel;
+std::vector<sf::Vector2i> points;
 
 int main( void )
-{
-    sf::RenderWindow window(sf::VideoMode(INIT_WIN_X, INIT_WIN_Y, 32), "Test", sf::Style::Titlebar|sf::Style::Close);
-    sf::Event event;
-    sf::View view;
+{   
+    setVectorSize(INIT_WIN_X, INIT_WIN_Y);
+    
+    bool drawing = false;
+    sf::Time deltaTime = sf::microseconds(DELTA_T);
+    sf::Clock clock;
+    sf::RectangleShape rect(sf::Vector2f(1.f, 1.f));
+    
+    initialize();
+    
+    rect.setFillColor(pixel[250][250]);
+    rect.setPosition(250.f, 250.f);
+    
+    srand( time(NULL) );
     
     view.setCenter( sf::Vector2f( INIT_WIN_X / 2, INIT_WIN_Y / 2 ) );
     view.setSize( sf::Vector2f(INIT_WIN_X, INIT_WIN_Y) );
     
-    window.setKeyRepeatEnabled(false);
+    //window.setKeyRepeatEnabled(false);
     window.setView(view);
     
-    sf::CircleShape shape(150, 6);
-    shape.setFillColor(sf::Color::Red);
-    shape.setPosition(0.f, 0.f);
+    window.clear(sf::Color::White);
     
-    window.clear(sf::Color::Green);
-    window.display();
+    drawStuff();
     
     while (window.isOpen())
     {
+        clock.restart();
+        
         while (window.pollEvent(event))
         {
             if (event.type == sf::Event::Closed)
@@ -51,17 +78,28 @@ int main( void )
                 handleResize(window, event, view);
             }
             
-            if (event.type == sf::Event::KeyPressed)
+            if (event.type == sf::Event::MouseButtonPressed)
             {
-                //handleKeyPress();
+                std::cout << "Pressed!" << std::endl;
+                drawing = !drawing; 
             }
-            
             while (window.pollEvent(event)){}
         }
         
-        window.clear(sf::Color::Green);
-        window.display();
-    
+        if (drawing)
+            {
+            //std::cout << "drawing" << std::endl;
+                sf::Vector2i pos = sf::Mouse::getPosition(window);
+                if ( (points.size() == 0) || (pos != points.back()) )
+                {
+                    points.push_back(pos);
+                }
+            }
+        
+        update();
+        drawStuff();
+        
+        while (clock.getElapsedTime() < deltaTime) {}
     }
     
     return 0;
@@ -92,35 +130,88 @@ void handleResize(sf::RenderWindow &window, sf::Event event, sf::View view)
     window.setView(view);
 }
 
-void drawHexs(sf::RenderWindow &window, unsigned int num, float r, sf::Vector2f center)
+int randInt( int min, int max )
 {
-    if (num == 0)
+    if( min > max ){
+        
+        return (min + 1);
+    }
+    
+    return (int)( ( ( rand() / (RAND_MAX * 1.0) ) * (1 + max - min) ) + min );
+}
+
+void initialize(void)
+{
+    for (register int i = 0; i < INIT_WIN_X; ++i)
+        for (register int j = 0; j < INIT_WIN_Y; ++j)
+            pixel[i][j] = sf::Color::White;
+}
+
+void update(void)
+{
+    if (points.size() < 1)
         return;
     
-    sf::Clock timingClock;
-    sf::Time deltaTime = sf::milliseconds(1000);
-    
-    float apothem = r * cos(M_PI / 6);
-    float side = 2 * r * sin(M_PI / 6);
-    
-    sf::CircleShape hex(r, 6);
-    hex.setFillColor(sf::Color::Red);
-    
-    for (int i = 0; i < ceil(num/6); ++i)
+    for (int i = 0; i < (points.size() - 1); ++i)
     {
-        for (int j = 0; j < 6; ++j)
+        int xInit = points[i].x, yInit = points[i].y;
+        int xFinal = points[i+1].x, yFinal = points[i+1].y;
+        int deltaX = xFinal - xInit, deltaY = yFinal - yInit;
+        float slope = deltaY / deltaX;
+        
+        std::cout << "Point " << i << ": (" << points[i].x << ", " << points[i].y << ")" << std::endl;
+        
+        if (deltaX == 0)
+            if (deltaY > 0)
+                for (int j = 0; j < deltaY; ++j)
+                    colorPixel(xInit, yInit + j, sf::Color::Black);
+            
+            else if (deltaY < 0)
+                for (int j = 0; j > deltaY; --j)
+                    colorPixel(xInit, yInit + j, sf::Color::Black);
+            
+            else if (deltaX > 0)
+                for (int j = 0; j < deltaX; ++j)
+                    colorPixel(xInit + j, (int)floor(yInit + (j*slope) ), sf::Color::Black );
+            
+            else if (deltaX < 0)
+                for (int j = 0; j > deltaX; --j)
+                    colorPixel(xInit + j, (int)floor(yInit + (j*slope) ), sf::Color::Black );
+        
+    }
+}
+
+void drawStuff(void)
+{
+    sf::RectangleShape rect(sf::Vector2f(1.f, 1.f));
+    
+    for (int i = 0; i < INIT_WIN_X; ++i)
+    {
+        for (int j = 0; j < INIT_WIN_Y; ++j)
         {
-            if ((i * j) > num)
-                break;
-            
-            timingClock.restart();
-            
-            hex.setPosition(center.x + ((i+2) * 2 * apothem * cos(j * (M_PI / 6))), center.y + ((i+1) * 2 * apothem * sin(j * (M_PI / 6))));
-            window.draw(hex);
-            window.display();
-            
-            while (timingClock.getElapsedTime() < deltaTime){}
+            rect.setPosition(i, j);
+            rect.setFillColor(pixel[i][j]);
+            window.draw(rect);
         }
     }
     window.display();
+}
+
+void drawRect(int num, sf::Color color)
+{
+    
+}
+
+void setVectorSize(int x, int y)
+{
+    pixel.resize(x);
+    
+    for (register int i = 0; i < x; ++i)
+        pixel[i].resize(y);
+}
+
+void colorPixel(int x, int y, sf::Color color)
+{
+    if ( (x < pixel.size()) && (x >= 0) && (y < pixel[x].size()) && (y >= 0))
+        pixel[x][y] = color;
 }
